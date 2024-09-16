@@ -1,10 +1,11 @@
+/* eslint-disable testing-library/no-unnecessary-act */
 /* eslint-disable testing-library/no-node-access */
-import { render, screen } from "@testing-library/react";
-import { act } from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import LoginComponent from "./LoginComponent";
+import userEvent from "@testing-library/user-event";
 
 describe("Login Component tests", () => {
-  const LoginServiceMock = {
+  const loginServiceMock = {
     login: jest.fn(),
   };
   const setTokenMock = jest.fn();
@@ -13,7 +14,7 @@ describe("Login Component tests", () => {
 
   function setup() {
     container = render(
-      <LoginComponent loginService={LoginServiceMock} setToken={setTokenMock} />
+      <LoginComponent loginService={loginServiceMock} setToken={setTokenMock} />
     ).container;
   }
 
@@ -39,5 +40,85 @@ describe("Login Component tests", () => {
     expect(inputs[0].getAttribute("value")).toBe("");
     expect(inputs[1].getAttribute("value")).toBe("");
     expect(inputs[2].getAttribute("value")).toBe("Login");
+  });
+  it("Click login button with incomplete message - show required message", () => {
+    const inputs = screen.getAllByTestId("input");
+    const loginButton = inputs[2];
+    fireEvent.click(loginButton);
+    expect(inputs).toHaveLength(3);
+    const resultLabel = screen.queryByTestId("resultLabel");
+    expect(resultLabel?.textContent).toBe("UserName and password required!");
+  });
+  it("Click login button with incomplete message - show required message - with usr click", () => {
+    const inputs = screen.getAllByTestId("input");
+    const loginButton = inputs[2];
+    act(() => {
+      userEvent.click(loginButton);
+    });
+    expect(inputs).toHaveLength(3);
+    const resultLabel = screen.queryByTestId("resultLabel");
+    expect(resultLabel?.textContent).toBe("UserName and password required!");
+  });
+
+  it("right credentials - successful login", async () => {
+    loginServiceMock.login.mockResolvedValueOnce("1234");
+    const inputs = screen.getAllByTestId("input");
+    const userNameInput = inputs[0];
+    const passwordInput = inputs[1];
+    const loginButton = inputs[2];
+    fireEvent.change(userNameInput, { target: { value: "someUser" } });
+    fireEvent.change(passwordInput, { target: { value: "somePass" } });
+    fireEvent.click(loginButton);
+    expect(loginServiceMock.login).toBeCalledWith("someUser", "somePass");
+    const resultLabel = await screen.findByTestId("resultLabel");
+    expect(resultLabel?.textContent).toBe("successful login");
+  });
+
+  it("right credentials - successful login - with user calls", async () => {
+    loginServiceMock.login.mockResolvedValueOnce("1234");
+    const inputs = screen.getAllByTestId("input");
+    const userNameInput = inputs[0];
+    const passwordInput = inputs[1];
+    const loginButton = inputs[2];
+    act(() => {
+      userEvent.click(userNameInput);
+      userEvent.keyboard("someUser");
+      userEvent.click(passwordInput);
+      userEvent.keyboard("somePass");
+      userEvent.click(loginButton);
+    });
+    expect(loginServiceMock.login).toBeCalledWith("someUser", "somePass");
+    const resultLabel = await screen.findByTestId("resultLabel");
+    expect(resultLabel?.textContent).toBe("successful login");
+  });
+
+  it("right credentials - unsuccessful login", async () => {
+    loginServiceMock.login.mockResolvedValueOnce(undefined);
+    const inputs = screen.getAllByTestId("input");
+    const userNameInput = inputs[0];
+    const passwordInput = inputs[1];
+    const loginButton = inputs[2];
+    fireEvent.change(userNameInput, { target: { value: "someUser" } });
+    fireEvent.change(passwordInput, { target: { value: "somePass" } });
+    fireEvent.click(loginButton);
+    expect(loginServiceMock.login).toBeCalledWith("someUser", "somePass");
+    const resultLabel = await screen.findByTestId("resultLabel");
+    expect(resultLabel?.textContent).toBe("invalid credentials");
+  });
+
+  it("right credentials - unsuccessful login - solve act warings", async () => {
+    const result = Promise.resolve(undefined);
+    loginServiceMock.login.mockResolvedValueOnce(undefined);
+    const inputs = screen.getAllByTestId("input");
+    const userNameInput = inputs[0];
+    const passwordInput = inputs[1];
+    const loginButton = inputs[2];
+    fireEvent.change(userNameInput, { target: { value: "someUser" } });
+    fireEvent.change(passwordInput, { target: { value: "somePass" } });
+    fireEvent.click(loginButton);
+    await result;
+    expect(loginServiceMock.login).toBeCalledWith("someUser", "somePass");
+    const resultLabel = await screen.findByTestId("resultLabel");
+    expect(resultLabel?.textContent).toBe("invalid credentials");
   });
 });
